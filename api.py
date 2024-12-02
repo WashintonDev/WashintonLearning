@@ -9,7 +9,7 @@ from sklearn.linear_model import LinearRegression
 import numpy as np
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})  # Permitir CORS para todos los orígenes
 
 DATABASE_URL = "postgresql://adminsp:4SxYdhnha3g6uhgndTvD@178.16.142.77:5432/washinton"
 engine = create_engine(DATABASE_URL)
