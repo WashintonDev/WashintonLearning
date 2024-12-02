@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import pandas as pd
 from sqlalchemy import create_engine, text
 from sklearn.ensemble import RandomForestClassifier
@@ -8,6 +9,7 @@ from sklearn.linear_model import LinearRegression
 import numpy as np
 
 app = Flask(__name__)
+CORS(app)
 
 DATABASE_URL = "postgresql://adminsp:4SxYdhnha3g6uhgndTvD@178.16.142.77:5432/washinton"
 engine = create_engine(DATABASE_URL)
@@ -136,8 +138,7 @@ def predict_low_stock():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
-    
+
 @app.route("/predict_future_sales", methods=["POST"])
 def predict_future_sales():
     try:
@@ -193,7 +194,7 @@ def predict_future_sales():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
+
 @app.route("/predict_top_stores", methods=["POST"])
 def predict_top_stores():
     try:
@@ -245,8 +246,6 @@ def predict_top_stores():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
-
 
 @app.route("/predict_product_demand", methods=["POST"])
 def predict_product_demand():
@@ -301,8 +300,6 @@ def predict_product_demand():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
-
 
 @app.route("/predict_inventory_rotation", methods=["POST"])
 def predict_inventory_rotation():
@@ -329,7 +326,6 @@ def predict_inventory_rotation():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
 
 @app.route("/recommended_suppliers", methods=["POST"])
 def recommended_suppliers():
@@ -387,6 +383,6 @@ def recommended_suppliers():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
+
 if __name__ == "__main__":
     app.run(debug=True)

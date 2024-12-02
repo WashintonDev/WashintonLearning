@@ -6,3 +6,4 @@ scikit-learn
 matplotlib
 fastapi
 uvicorn
+flask_cors
