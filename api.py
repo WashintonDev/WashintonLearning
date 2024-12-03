@@ -195,6 +195,10 @@ def predict_future_sales():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+####DE AQUI PARA ABAJO MEJORARLOS JOSEEEEEE
+##MEJORAR EL ENDPOINTN PARA QUE APAREZCAN TODAS LAS TIENDAS Y QUE LAS TIENDAS APAREZCAN CON 
+##UNA GANANCIA CONSIDERABLE DE CADA TIENDA CON SU HISTORICO DE DATOS
 @app.route("/predict_top_stores", methods=["POST"])
 def predict_top_stores():
     try:
@@ -247,6 +251,8 @@ def predict_top_stores():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+### QUE SE MIRE BIEN EN EL FRONTEND
 @app.route("/predict_product_demand", methods=["POST"])
 def predict_product_demand():
     try:
@@ -301,6 +307,7 @@ def predict_product_demand():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+##investigale mas a este endpoint
 @app.route("/predict_inventory_rotation", methods=["POST"])
 def predict_inventory_rotation():
     try:
@@ -327,6 +334,12 @@ def predict_inventory_rotation():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+##AVIENTATE ESTE ENDPOINT
+
+##de este restock saques el product id*/
+##SELECT * FROM product_batch
+##select * from product_supplier
+##y sacar de ahiu el supplier que ha rehabestecido mas el warehouse_id:1
 @app.route("/recommended_suppliers", methods=["POST"])
 def recommended_suppliers():
     """
