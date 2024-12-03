@@ -167,14 +167,20 @@ def predict_future_sales():
             X = store_data[['day']]
             y = store_data['total_amount']
 
-            model = LinearRegression()
-            model.fit(X, y)
+            if len(store_data) < 2:
+                # Si hay datos insuficientes, asumimos un crecimiento lineal básico
+                future_sales_amounts = np.full((30,), y.mean())
+            else:
+                # Entrenamos el modelo
+                model = LinearRegression()
+                model.fit(X, y)
 
-            future_sales_amounts = model.predict(future_days)
-            future_sales_amounts = np.maximum(future_sales_amounts, 0)
+                # Predicción de ventas futuras
+                future_sales_amounts = model.predict(future_days)
+                future_sales_amounts = np.maximum(future_sales_amounts, 0)
 
-            avg_ticket_size = store_data['total_amount'].mean()
-            approx_sales_count = np.ceil(future_sales_amounts / avg_ticket_size).astype(int)
+            avg_ticket_size = max(store_data['total_amount'].mean(), 1)  # Evita divisores cero
+            approx_sales_count = np.maximum(np.ceil(future_sales_amounts / avg_ticket_size).astype(int), 1)
 
             future_dates = pd.date_range(start=today, periods=30).tolist()
             store_future_sales_data = pd.DataFrame({
