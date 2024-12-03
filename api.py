@@ -195,14 +195,11 @@ def predict_future_sales():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
-####DE AQUI PARA ABAJO MEJORARLOS JOSEEEEEE
 ##MEJORAR EL ENDPOINTN PARA QUE APAREZCAN TODAS LAS TIENDAS Y QUE LAS TIENDAS APAREZCAN CON 
 ##UNA GANANCIA CONSIDERABLE DE CADA TIENDA CON SU HISTORICO DE DATOS
-@app.route("/predict_top_stores", methods=["POST"])
-def predict_top_stores():
+@app.route("/predict_all_stores", methods=["POST"])
+def predict_all_stores():
     try:
-        # Reutilizamos la lógica del endpoint predict_future_sales
         query = text("""
             SELECT store_id, sale_date, total_amount
             FROM sale
@@ -215,37 +212,47 @@ def predict_top_stores():
         if sales_data.empty:
             return jsonify({"error": "No sales data found."}), 404
 
+        # Preprocesamiento
         sales_data['sale_date'] = pd.to_datetime(sales_data['sale_date'])
         sales_data['day'] = (sales_data['sale_date'] - sales_data['sale_date'].min()).dt.days
 
+        # Inicialización de resultados
+        all_stores_data = []
         today = pd.Timestamp.now()
         days_since_start = (today - sales_data['sale_date'].min()).days
         future_days = np.array([days_since_start + i for i in range(1, 31)]).reshape(-1, 1)
-
-        # Diccionario para almacenar los totales de cada tienda
-        store_future_totals = {}
 
         for store_id in sales_data['store_id'].unique():
             store_data = sales_data[sales_data['store_id'] == store_id]
             X = store_data[['day']]
             y = store_data['total_amount']
 
-            # Entrenamos el modelo
+            # Histórico de ventas
+            total_historic_sales = store_data['total_amount'].sum()
+
+            # Modelo de predicción
             model = LinearRegression()
             model.fit(X, y)
 
-            # Predicción de las ventas futuras
+            # Predicciones futuras
             future_sales_amounts = model.predict(future_days)
             future_sales_amounts = np.maximum(future_sales_amounts, 0)
+            total_future_sales = float(future_sales_amounts.sum())
 
-            # Total futuro para la tienda actual
-            store_future_totals[int(store_id)] = float(future_sales_amounts.sum())
+            # Formato del resultado
+            store_summary = {
+                "store_id": int(store_id),
+                "historic_sales": float(total_historic_sales),
+                "future_sales_projection": total_future_sales,
+                "historic_data": store_data[['sale_date', 'total_amount']].to_dict(orient="records")
+            }
+            all_stores_data.append(store_summary)
 
-        # Ordenamos las tiendas por el total proyectado
-        top_stores_sorted = sorted(store_future_totals.items(), key=lambda x: x[1], reverse=True)
+        # Ordenar por proyección de ganancias futuras
+        all_stores_data.sort(key=lambda x: x['future_sales_projection'], reverse=True)
 
         return jsonify({
-            "top_stores": top_stores_sorted
+            "stores_data": all_stores_data
         })
 
     except Exception as e:
@@ -308,6 +315,7 @@ def predict_product_demand():
         return jsonify({"error": str(e)}), 500
 
 ##investigale mas a este endpoint
+##predice el tiempo de rotación del inventario para cada producto.
 @app.route("/predict_inventory_rotation", methods=["POST"])
 def predict_inventory_rotation():
     try:
@@ -334,68 +342,64 @@ def predict_inventory_rotation():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-##AVIENTATE ESTE ENDPOINT
-
-##de este restock saques el product id*/
-##SELECT * FROM product_batch
-##select * from product_supplier
-##y sacar de ahiu el supplier que ha rehabestecido mas el warehouse_id:1
-@app.route("/recommended_suppliers", methods=["POST"])
-def recommended_suppliers():
+@app.route("/top_supplier_for_warehouse", methods=["POST"])
+def top_supplier_for_warehouse():
     """
-    Predice los proveedores recomendados para productos con bajo inventario.
-    Devuelve un JSON con el producto, nivel actual y los proveedores recomendados.
+    Identifica el proveedor que ha reabastecido más un almacén específico.
     """
     try:
-        product_inventory_query = text("""
-            SELECT 
-                product_batch.product_id, 
-                product.name AS product_name,  -- Cambio realizado aquí
-                SUM(product_batch.quantity) AS total_quantity
-            FROM product_batch
-            JOIN product ON product_batch.product_id = product.product_id
-            WHERE product_batch.status = 'active'
-            GROUP BY product_batch.product_id, product.name  -- Cambio realizado aquí
-        """)
+        data = request.get_json()
+        warehouse_id = data.get("warehouse_id")
 
-        product_supplier_query = text("""
+        if not warehouse_id:
+            return jsonify({"error": "Invalid input. warehouse_id is required."}), 400
+
+        # Consulta para obtener los datos de reabastecimiento por almacén
+        restock_query = text("""
             SELECT 
-                product_supplier.product_id, 
-                supplier.name AS supplier_name  -- Cambio realizado aquí
-            FROM product_supplier
-            JOIN supplier ON product_supplier.supplier_id = supplier.supplier_id
+                pb.product_id, 
+                ps.supplier_id, 
+                s.name AS supplier_name,
+                i.warehouse_id, 
+                SUM(pb.quantity) AS total_restocked
+            FROM product_batch pb
+            JOIN product_supplier ps ON pb.product_id = ps.product_id
+            JOIN supplier s ON ps.supplier_id = s.supplier_id
+            JOIN inventory i ON pb.product_id = i.product_id
+            WHERE i.warehouse_id = :warehouse_id  -- Específico al almacén solicitado
+            GROUP BY pb.product_id, ps.supplier_id, s.name, i.warehouse_id
         """)
 
         with engine.connect() as connection:
-            inventory_result = connection.execute(product_inventory_query)
-            supplier_result = connection.execute(product_supplier_query)
+            restock_result = connection.execute(restock_query, {"warehouse_id": warehouse_id})
+            restock_data = pd.DataFrame(restock_result.fetchall(), columns=restock_result.keys())
 
-            inventory_data = pd.DataFrame(inventory_result.fetchall(), columns=inventory_result.keys())
-            supplier_data = pd.DataFrame(supplier_result.fetchall(), columns=supplier_result.keys())
+        if restock_data.empty:
+            return jsonify({"error": "No se encontraron datos de reabastecimiento para el almacén solicitado."}), 404
 
-        if inventory_data.empty or supplier_data.empty:
-            return jsonify({"error": "No se encontraron datos de inventario o proveedores."}), 404
+        # Agrupamos por proveedor y calculamos el total reabastecido
+        supplier_totals = (
+            restock_data.groupby(["supplier_id", "supplier_name"])
+            .agg({"total_restocked": "sum"})
+            .reset_index()
+        )
 
-        low_stock_products = inventory_data[inventory_data['total_quantity'] < 20]
+        # Ordenamos por el total reabastecido en orden descendente
+        top_supplier = supplier_totals.sort_values(by="total_restocked", ascending=False).iloc[0]
 
-        recommendations = {}
-        for _, row in low_stock_products.iterrows():
-            product_id = row['product_id']
-            product_name = row['product_name']
-            total_quantity = row['total_quantity']
-
-            product_suppliers = supplier_data[supplier_data['product_id'] == product_id]
-            supplier_names = product_suppliers['supplier_name'].tolist()
-
-            recommendations[product_name] = {
-                "current_inventory": total_quantity,
-                "recommended_suppliers": supplier_names
+        response = {
+            "top_supplier": {
+                "supplier_id": int(top_supplier["supplier_id"]),
+                "supplier_name": top_supplier["supplier_name"],
+                "total_restocked": float(top_supplier["total_restocked"])
             }
+        }
 
-        return jsonify({"recommended_suppliers": recommendations})
+        return jsonify(response)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(debug=True)
