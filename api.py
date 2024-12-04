@@ -203,7 +203,7 @@ def predict_future_sales():
 
 ##MEJORAR EL ENDPOINTN PARA QUE APAREZCAN TODAS LAS TIENDAS Y QUE LAS TIENDAS APAREZCAN CON 
 ##UNA GANANCIA CONSIDERABLE DE CADA TIENDA CON SU HISTORICO DE DATOS
-@app.route("/predict_all_stores", methods=["POST"])
+@app.route("/predict_top_stores", methods=["POST"])
 def predict_all_stores():
     try:
         query = text("""
